@@ -3,7 +3,7 @@
 ## Overview
 
 This project implements a Decentralized Autonomous Organization (DAO) using Solidity smart contracts. 
-The DAO allows members to purchase shares of the DAO to become members, once member a user can create proposal that are going to be accepted if the vote in support of it are more than the vote against it after the fixed time of 5 days is expire (or the owner or the proposal owner decide to close is before the 5 days expiration). 
+The DAO allows users to purchase shares of the DAO to become members, once member a user can create proposal that are going to be accepted if the vote in support of it are more than the vote against it after the fixed time of 5 days is expire (or the owner or the proposal owner decide to close is before the 5 days expiration). 
 Only members can vote on proposals. 
 The core components of the project include the `DAOContract`, the `Slunicoin` token, and the `DAOVoting` contract.
 
