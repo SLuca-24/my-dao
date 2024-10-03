@@ -7,6 +7,12 @@ The DAO allows users to purchase shares of the DAO to become members, once membe
 Only members can vote on proposals. 
 The core components of the project include the `DAOContract`, the `Slunicoin` token, and the `DAOVoting` contract.
 
+
+## Purpose of the DAO
+
+The DAO was created to enable community governance and decision-making in a decentralized manner. 
+By allowing users to purchase shares and participate in the decision-making process, the DAO aims to foster a sense of ownership among its members. This empowers individuals to have a direct impact on the direction and management of the organization, promoting transparency and accountability.
+
 ## Technical Choices
 
 ### Smart Contracts
