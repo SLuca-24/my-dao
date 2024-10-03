@@ -14,6 +14,7 @@ contract DAOVoting {
         string description;
         uint256 votesPro;
         uint256 votesAgainst;
+        uint256 abstainedVotes;
         bool active;
         address proposer;
         uint256 creationTime;
@@ -23,6 +24,9 @@ contract DAOVoting {
     }
 
     mapping(uint256 => Proposal) public proposals;
+    mapping(address => address) public voteDelegation;
+    mapping(address => uint256) public delegatedShares;
+
 
     event ProposalCreated(uint256 id, string description);
     event VoteCasted(address voter, uint256 proposalId, bool votePro, uint256 voteWeight);
@@ -30,7 +34,7 @@ contract DAOVoting {
 
     modifier onlyMembers() {
         require(address(MyDAO) != address(0), "DAO contract not linked");
-        require(MyDAO.isMember(msg.sender) == true, "Only DAO members can vote");
+        require(MyDAO.isMember(msg.sender), "Only DAO members can vote");
         _; 
     }
 
@@ -43,7 +47,6 @@ contract DAOVoting {
         owner = msg.sender;
         proposalCount = 0;
     }
-
 
     function setDAOContract(address _daoContract) public onlyOwner {
         MyDAO = DAOContract(_daoContract);
@@ -63,38 +66,79 @@ contract DAOVoting {
         emit ProposalCreated(proposalCount, _description);
     }
 
-    function voteOnProposal(uint256 _proposalId, bool _votePro) public onlyMembers {
-        Proposal storage proposal = proposals[_proposalId];
-        require(proposal.active, "Proposal is not active");
-        require(!proposal.hasVoted[msg.sender], "Already voted on this proposal");
 
-        uint256 voterShares = MyDAO.sharesOwned(msg.sender);
-        require(voterShares > 0, "No shares owned");
 
-        proposal.hasVoted[msg.sender] = true; 
+   function delegateVote(address _delegate) public onlyMembers {
+    require(_delegate != msg.sender, "You cannot delegate your vote to yourself");
+    require(MyDAO.isMember(_delegate), "Delegate must be a DAO member");
+    require(voteDelegation[msg.sender] == address(0), "You have already delegated your vote");
 
-        if (_votePro) {
-            proposal.votesPro += voterShares;
-        } else {
-            proposal.votesAgainst += voterShares;
+    for (uint256 i = 0; i < proposalCount; i++) {
+        Proposal storage proposal = proposals[i];
+        if (proposal.active && proposal.hasVoted[msg.sender]) {
+            revert("You cannot delegate your vote after voting on an active proposal");
         }
-
-        emit VoteCasted(msg.sender, _proposalId, _votePro, voterShares);
     }
+
+    voteDelegation[msg.sender] = _delegate;
+    delegatedShares[_delegate] += MyDAO.sharesOwned(msg.sender);
+}
+
+
+
+function voteOnProposal(uint256 _proposalId, uint8 _voteOption) public onlyMembers {
+    // type 1 to vote pro, type 2 to vote against, evertything else will count as abstained
+    require(_voteOption <= 2, "Invalid vote option");
+    Proposal storage proposal = proposals[_proposalId];
+    require(proposal.active, "Proposal is not active");
+
+    address voter = msg.sender;
+
+    
+    require(voteDelegation[voter] == address(0), "You cant vote because you have delegated your vote");
+
+    uint256 voterShares = MyDAO.sharesOwned(voter);
+    require(voterShares > 0, "No shares owned");
+
+   
+    uint256 totalShares = voterShares + delegatedShares[voter];
+
+    require(!proposal.hasVoted[voter], "You have already voted on this proposal");
+    proposal.hasVoted[voter] = true;
+
+    if (_voteOption == 1) {
+        proposal.votesPro += totalShares;
+    } else if (_voteOption == 2) {
+        proposal.votesAgainst += totalShares;
+    } else {
+        proposal.abstainedVotes += totalShares;
+    }
+
+    emit VoteCasted(voter, _proposalId, _voteOption == 1, totalShares);
+}
+
+function revokeDelegation() public onlyMembers {
+    address delegate = voteDelegation[msg.sender];
+    require(delegate != address(0), "No active delegation to revoke");
+
+    delegatedShares[delegate] -= MyDAO.sharesOwned(msg.sender);
+    voteDelegation[msg.sender] = address(0);
+}
+
+
 
     function closeProposal(uint256 _proposalId) public {
         Proposal storage proposal = proposals[_proposalId];
         require(proposal.active, "Proposal is already closed");
         require(msg.sender == proposal.proposer || msg.sender == owner, "Only proposer or owner can close the proposal");
 
-
         if (block.timestamp > proposal.creationTime + proposal.duration) {
             proposal.active = false;
         } else {
             proposal.accepted = proposal.votesPro > proposal.votesAgainst;
-            proposal.active = false;
-            emit ProposalClosed(_proposalId, proposal.accepted);
         }
+        proposal.active = false;
+        emit ProposalClosed(_proposalId, proposal.accepted);
     }
 
     function isProposalExpired(uint256 _proposalId) public view returns (bool) {
